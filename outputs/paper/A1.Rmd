@@ -1,0 +1,115 @@
+---
+title: "Toronto Overoccupied Shelters Analysis"
+author: "Jennifer Liu - 1006702310"
+date: "02/02/2022"
+output: pdf_document
+abstract: Daily Shelter & Overnight Service Occupancy & Capacity is used from the City of Toronto Open Data Portal to analyze Toronto shelters capacity under the pandemic and the sector or program that needs more shelters. It is found that Toronto shelters have a capacity rate that approaches the maximum and is currently in crisis. Although youth shelters are slightly less occupied, women shelters need more attention. The city has not created any winter shelter program for women and has the lowest number of COVID-19 response shelter. However, biases and the lack of historical data might affect the result. With the current finding, the city ought to bring more attention to this shelter crisis to prevent more COVID-19 outbreaks and hospitalization.   
+bibliography: ref_list.bib
+---
+^[Code and Data supporting this analysis can be found at: https://github.com/jenniferliu888/STA304]
+
+```{r, include=FALSE}
+library(tidyverse)
+library(opendatatoronto)
+library(dplyr)
+```
+
+
+```{r, include=FALSE}
+# get package
+package <- show_package("21c83b32-d5a8-4106-a54f-010dbe49f6f2")
+package
+
+# get all resources for this package
+resources <- list_package_resources("21c83b32-d5a8-4106-a54f-010dbe49f6f2")
+
+# identify datastore resources; by default, Toronto Open Data sets datastore resource format to CSV for non-geospatial and GeoJSON for geospatial resources
+datastore_resources <- filter(resources, tolower(format) %in% c('csv', 'geojson'))
+
+# load the first datastore resource as a sample
+data <- filter(datastore_resources, row_number()==1) %>% get_resource()
+data
+```
+# Introduction
+Global News has reported that Toronto is currently facing a shelter capacity crisis with the cold weather and COVID-19 impact. This has resulted in an increasing number of homelessness with hypothermia and frostbite @W1. Although the world is fighting this pandemic together, homelessness people need extra attention as they are the ones who lack the most of sanitary resources. In fact, more than 50 Toronto shelters are facing COVID-19 outbreaks @W2. Therefore, it is worth examining whether Toronto shelters have enough capacity to meet its demand given the current situation. 
+
+The dataset of Daily Shelter & Overnight Service Occupancy & Capacity @data, taken from the City of Toronto Open Portal website will be analyzed @opendata. It contains the most updated information about shelters' program, usage and capacity for shelters in Toronto. This 2022 data reflects shelters' current situation.We are going to first analyze whether Toronto has enough shelters for the homelessness and which sector and program need to be added or removed in order to meet the demand. It is also important to consider and analyze whether women and youth have enough shelters as they need more accommodation such as domestic violence support @W3. It is found that shelters are very important for domestic violence victims where women are seeking emotional and safety support in the shelters. It is found that 72% of women confirmed shelters have been very effective in reducing violence on them @lit. 
+
+This report first discusses about the data collection and cleaning process for the dataset. Its various limitations, biases and characteristics are also discussed. Then, a brief data summary shows some important findings. It is shown that both room-based and bed-based shelters have a median capacity rate of 100, which proved a shelter crisis the city is currently facing. Youth's shelters are slightly less occupied than the other ones, but women shelters have less programs available: there is no winter program and have the lowest number of COVID-19 response shelters. 
+
+This report is analyzed using R @R, using tidyverse @tidyverse, dplyr @dplyr and opendatatoronto packages @opendatatoronto. All the tables and graphs are created using ggplot2 @ggplot2. 
+
+# Data Collection and Cleaning 
+## Data Source 
+This report uses data collected from the Shelter Support and Housing Administration (SSHA) division's Shelter Management Information System (SMIS) database @data. This division manages housing and homelessness support in Toronto and provides services such as street outreach and emergency shelters @W4. The SMIS is a tool that requires shelter users to enter their information to better serve them by avoiding the loss of important identification paper, facilitating shelters' transfer and many more @W4. This dataset @data is retrieved from the City of Toronto Open Data Portal @opendata using the R package opendatatoronto @opendatatoronto. The current dataset is last updated on February 2, 2022. 
+
+## Methodology, Data Collection and Limitations
+The 2022 dataset contains information about active shelters of the SSHA, which captures daily shelters' usage, capacity, location, classification and operator. It has been upgraded from the Data Shelter Occupancy dataset, also found on the Toronto's Open Data Portal, that contains data from 2017 to 2021 @old.  
+
+Shelter users are required to complete a series of questions in order to meet SMIS's requirement that helps to facilitate services provided. Although most information is confidential, the system generates a data that picture the shelter's occupancy rate at 4AM @data. It is uncertain whether all homelessness completed the questions as the collection method is not specified whether it is mandatory. Moreover, this data is unaudited and may not reflect the actual situation given COVID and shelters' instability. 
+
+The SMIS database only records shelters that are funded or managed by SSHA @SMIS. Although most shelters are funded by the city, some shelters might be privately funded and are not included on the list. It is uncertain the exact number as no data has been found about this matter. Thus, the dataset used for the report does not represents all shelters in Toronto. There is a sampling/selection bias as the sample selection process is not random and privately-funded shelters that are not included in the sample could have distinct characteristics. 
+
+The dataset also contains missing data because shelters occupancy are measured by room-based or bed-based capacity. Room-based is for family program or motel-shelter that offer sleeping rooms. Therefore, the analysis and the result section ought to analyze room-based and bed-based capacity shelters independently. When analyzing data for room-based capacity, bed-based occupancy is going to be filtered out and vice-versa. By doing so, the missing value is not going to affect our analysis and we could compare the difference in occupancy rate between room-based and bed-based shelters. 
+
+This dataset has considered ethical factors as privacy information has been removed. However, it is important to consider whether homelessness were forced to provide the information as this might entail an ethical debate. 
+
+Because data is updated daily, this dataset reflects the current state of shelters' occupancy under the pandemic. However, due to the difference in variables and collecting method between 2022 dataset and previous ones, it is not possible to compare the data across different years. Thus, the analysis of the report is only relevant for the current state and would change when there is no pandemic and when weather is warmer. 
+
+
+## Data Characteristics 
+The Daily Shelter & Overnight Service Occupancy & Capacity dataset contains 4587 observations and 32 variables. In order to keep only the variables that are relevant to the report, 12 variables are kept for the analysis: sector, program area, capacity of the bed, number of occupied beds, unoccupied bed, unavailable beds, beds occupancy rate, capacity of rooms, unavailable rooms, occupied rooms and rooms occupancy rate. Shelters have 5 sectors (mixed adults, men, women, families and youth) and 3 programs (base shelter, COVID response and winter programs). The capacity measure the actual number or room/bed available. The capacity of the same shelter might vary because there are also a number of unavailable rooms and beds that cannot be occupied. The occupancy rate is calculated by the system and is the actual capacity divided by the occupancy number. The original dataset provides two type of capacity: actual and funding.Funding refers to the capacity the shelter was intended to provided and does not reflect the actual state of the shelter and is therefore removed from our dataset. 
+
+All shelters are either bed-based or room-based. Bed-based capacity is for shelters with common sleeping areas and room-based capacity is for family programs and hotel programs. For the purpose of the report, observations are separated into two dataset: room-based with 1591 observations and bed-based with 3136 observations. 
+
+
+```{r echo=FALSE}
+#Data Cleaning
+#Only keeps selected columns
+#separate shelters that are room based and bed based
+
+data_clean_bed <- data %>%
+  select (SECTOR, PROGRAM_AREA, CAPACITY_ACTUAL_BED,OCCUPIED_BEDS ,UNOCCUPIED_BEDS, UNAVAILABLE_BEDS, OCCUPANCY_RATE_BEDS) %>%
+  filter(!is.na(OCCUPANCY_RATE_BEDS))
+ 
+data_clean_room <- data %>%
+  select(SECTOR, PROGRAM_AREA, UNOCCUPIED_ROOMS,CAPACITY_ACTUAL_ROOM, UNAVAILABLE_ROOMS,OCCUPIED_ROOMS ,OCCUPANCY_RATE_ROOMS) %>%
+  filter(!is.na(OCCUPANCY_RATE_ROOMS)) 
+```
+
+## Data Summary 
+Table 1 and 2 are a summary of the mean, median, standard deviation and IQR for the occupancy ratio of the dataset. 
+```{r, echo=FALSE}
+summary_table_bed <- data_clean_bed %>% summarise(
+  min = min(OCCUPANCY_RATE_BEDS), Q1 = quantile(OCCUPANCY_RATE_BEDS, 0.25) ,median = median(OCCUPANCY_RATE_BEDS), Q3 = quantile(OCCUPANCY_RATE_BEDS, 0.75), max = max(OCCUPANCY_RATE_BEDS), mean = mean(OCCUPANCY_RATE_BEDS), standarddeviation = sd(OCCUPANCY_RATE_BEDS)
+)
+
+knitr::kable(summary_table_bed, caption = "Summary of Occupancy Rate of Beds for Shelter")
+
+summary_table_bed <- data_clean_room %>% summarise(
+  min = min(OCCUPANCY_RATE_ROOMS), Q1 = quantile(OCCUPANCY_RATE_ROOMS, 0.25) ,median = median(OCCUPANCY_RATE_ROOMS), Q3 = quantile(OCCUPANCY_RATE_ROOMS, 0.75), max = max(OCCUPANCY_RATE_ROOMS), mean = mean(OCCUPANCY_RATE_ROOMS), standarddeviation = sd(OCCUPANCY_RATE_ROOMS)
+)
+
+knitr::kable(summary_table_bed, caption = "Summary of Occupancy Rate of Rooms for Shelter")
+
+```
+The median of the occupancy rate for shelters with rooms and beds are both 100. This indicates that shelters in Toronto are extremely occupied are fully occupied most of the time. Although the mean for bed-based shelter is slightly lower than room-based with 94.49 compared to 96.75, the difference is small. The standard deviation of 11.17 for bed-based and 10.32 for room-based shelters is also  low. The spread of the dataset is close to the median, which again signals that the city would new shelters as most of the shelters have an occupancy ratio very close to 100. When the occupancy ratio is 100, it means that the occupancy and capacity number are the same.   
+
+```{r 1, fig.cap = "pop", fig.width = 6, fig.height = 3, echo=FALSE, message=FALSE}
+data_clean_bed %>% ggplot(aes(x=SECTOR, y=OCCUPANCY_RATE_BEDS)) + geom_boxplot(color = "black", fill = "blue") + labs(x="Sector", y="Occupancy Rate", title = "Figure 1: Boxplot of the Occupnacy Rate by Different Shelters Sectors")
+```
+Figure 1 features 5 boxplots of numbers of shelters' unoccupied beds according to their different sector. Men, mixed adults and women sector shelters are skewed to the left, with their median approaching 100, which reflects the very high occupancy ratio obtained from Table 1. On the other hand, the shelter that serves youth is more symmetric, with a median approaching 88. Thus, it is reasonable to conclude that the shelters for youth have a lower occupancy ratio than the other ones. There are also many outliers in terms of the occupancy ratio for all sectors, which means that it also happens the shelters are under occupied. The boxplot for families is not considered as we are analyzing bed-based shelters whereas families shelters are most room-based.
+
+Thus, using Figure 1, it is possible to make a hypothesis that the city should increase the number of shelters in Toronto as the boxplot for men, mixed adults and women are extremely left skewed. Although youth shelters have a high occupancy rate, they are still doing better than others shelters and some resources can be allocated if needed. 
+
+```{r, echo=FALSE, message=FALSE}
+data_clean_room %>% ggplot(aes(x=CAPACITY_ACTUAL_ROOM, y=OCCUPANCY_RATE_ROOMS))+ geom_point()+geom_smooth(method=lm, se=FALSE)+labs(x="Capacity", y="Occupancy Ratio", title= "Figure 2: Capacity by Occupancy Ratio")
+```
+Figure 2 is a scatterplot of occupancy ratio and the shelter's capacity in order to determine if there exists a relationship between the two. For example, if bigger shelter would have a higher occupancy ratio or not. The variables occupancy ratio and capacity have a weak positive correlation. This means that the capacity of the shelter might affect the occupancy ratio and when adding new shelters in Toronto, the size of the shelter could be considered when thinking about the occupancy rate.
+
+```{r, echo=FALSE}
+data %>% ggplot(aes(x=SECTOR, fill=PROGRAM_AREA)) + geom_bar() + geom_text(stat = 'count', aes(label=..count.., vjust = 2)) + labs(x= "Sector", title="Figure 3: Shelter Programs per Sector")
+```
+Figure 3 gives a clear summary of the different shelter programs by sectors. We can see that there has the highest number of mixed adults program, followed by men, with families shelter the lowest. Winter program is only available for mixed adult shelters whereas temporary refugee response program is only for mixed adult and families shelter. Women have the lowest number of COVID response shelters. 
+
+# Reference
